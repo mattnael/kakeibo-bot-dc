@@ -603,9 +603,10 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.editReply({ content: `Nggak ada catatan transaksi untuk periode **${formattedMonth}**.` });
             }
 
-            let historyText = rows.map(r => 
-                `\`#${r.id}\` | **[${r.type.toUpperCase()}]** ${r.pillar} - ${r.item}: Rp${r.amount.toLocaleString('id-ID')} (${r.description})`
-            ).join('\n');
+            let historyText = rows.map(r => {
+                const tanggal = r.created_at ? r.created_at.slice(0, 10) : ''; // Format: YYYY-MM-DD
+                return `\`#${r.id}\` *(${tanggal})* | **[${r.type.toUpperCase()}]** ${r.pillar} - ${r.item}: Rp${r.amount.toLocaleString('id-ID')} (${r.description})`;
+            }).join('\n');
 
             const embed = new EmbedBuilder()
                 .setTitle(`📜 Riwayat Transaksi Periode ${formattedMonth}`)
