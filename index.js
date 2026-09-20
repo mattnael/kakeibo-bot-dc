@@ -207,13 +207,6 @@ const commands = [
 ].map(cmd => cmd.toJSON());
 
 client.once('clientReady', async () => {
-    // Reset DB 
-    db.prepare('DROP TABLE IF EXISTS deleted_defaults').run();
-    db.prepare('DROP TABLE IF EXISTS custom_categories').run();
-    db.prepare('DROP TABLE IF EXISTS transactions').run();
-    db.prepare('DROP TABLE IF EXISTS item_limits').run();
-    db.prepare('DROP TABLE IF EXISTS budgets').run();
-    db.prepare('DROP TABLE IF EXISTS settings').run();
 
     db.prepare(`
         CREATE TABLE IF NOT EXISTS deleted_defaults (
