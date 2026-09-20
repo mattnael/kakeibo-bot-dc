@@ -8,16 +8,20 @@ if (volumePath && !fs.existsSync(volumePath)) {
 }
 
 const dbPath = volumePath ? path.join(volumePath, 'kakeibo.db') : path.join(__dirname, 'kakeibo.db');
-const db = new Database(dbPath);
+console.log('📍 Lokasi Database Aktif:', dbPath);
 
-// Inisialisasi Seluruh Tabel
+const db = new Database(dbPath);
+db.pragma('journal_mode = WAL');
+
+// 1. Buat Tabel Jika Belum Ada
 db.exec(`
     CREATE TABLE IF NOT EXISTS transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
         guild_id TEXT,
         type TEXT NOT NULL,
-        category TEXT NOT NULL,
+        pillar TEXT,
+        item TEXT,
         amount INTEGER NOT NULL,
         description TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -25,8 +29,24 @@ db.exec(`
 
     CREATE TABLE IF NOT EXISTS budgets (
         user_id TEXT PRIMARY KEY,
-        wants_limit INTEGER DEFAULT 0,
         monthly_income INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS item_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
+        pillar TEXT,
+        item TEXT,
+        limit_amount INTEGER,
+        UNIQUE(user_id, pillar, item)
+    );
+
+    CREATE TABLE IF NOT EXISTS custom_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
+        pillar TEXT,
+        item_name TEXT,
+        UNIQUE(user_id, pillar, item_name)
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -41,14 +61,30 @@ db.exec(`
     );
 `);
 
-// Migrasi Otomatis (Tambah kolom timezone)
+// 2. PERBAIKAN OTOMATIS: Deteksi dan hapus kolom 'category' lama jika masih tersisa
 try {
-    const columns = db.prepare(`PRAGMA table_info(settings)`).all().map(c => c.name);
-    if (!columns.includes('recap_weekly_channel_id')) db.exec(`ALTER TABLE settings ADD COLUMN recap_weekly_channel_id TEXT;`);
-    if (!columns.includes('recap_monthly_channel_id')) db.exec(`ALTER TABLE settings ADD COLUMN recap_monthly_channel_id TEXT;`);
-    if (!columns.includes('timezone')) db.exec(`ALTER TABLE settings ADD COLUMN timezone TEXT DEFAULT 'Asia/Jakarta';`);
+    const columns = db.prepare("PRAGMA table_info(transactions)").all();
+    const hasCategory = columns.some(col => col.name === 'category');
+    if (hasCategory) {
+        db.exec("ALTER TABLE transactions DROP COLUMN category;");
+        console.log('✅ Kolom category lama berhasil dibuang!');
+    }
 } catch (err) {
-    console.error('Error migrasi database:', err.message);
+    db.exec("DROP TABLE IF EXISTS transactions;");
+    db.exec(`
+        CREATE TABLE transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            guild_id TEXT,
+            type TEXT NOT NULL,
+            pillar TEXT,
+            item TEXT,
+            amount INTEGER NOT NULL,
+            description TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+    console.log('🔄 Tabel transactions berhasil di-reset!');
 }
 
 module.exports = db;
